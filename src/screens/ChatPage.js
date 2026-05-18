@@ -59,6 +59,14 @@ export default function ChatPage({ authUser, token, onLogout, onOpenProfile }) {
     });
     socketRef.current = socket;
 
+    socket.on('connect', () => {
+      console.log('socket connected', socket.id);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.log('socket connect error', error.message);
+    });
+
     socket.on('getOnlineUsers', (userIds) => {
       setOnlineUsers(userIds || []);
     });
