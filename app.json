@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "App",
-    "slug": "App",
+    "name": "Chat App",
+    "slug": "chat-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,18 +13,43 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chatapp.mobile",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow Chat App to access your photos so you can send images in chat.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.chatapp.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Chat App to access your photos so you can send images in chat."
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2d36471b-f5dc-4567-818a-b83657f60ca9"
+      }
     }
   }
 }
