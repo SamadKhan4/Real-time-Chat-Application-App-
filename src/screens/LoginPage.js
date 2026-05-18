@@ -23,22 +23,33 @@ export default function LoginPage({ onAuthenticated }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [bio, setBio] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSignup = currState === 'Sign up';
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isSignup && !isDataSubmitted) {
       setIsDataSubmitted(true);
       return;
     }
 
-    onAuthenticated({
-      _id: 'user-me',
-      fullName: fullName.trim() || 'New User',
-      email,
-      bio: bio.trim() || 'Hey there, I am using Chat App.',
-      isFirstLogin: isSignup,
-    });
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await onAuthenticated({
+        mode: isSignup ? 'signup' : 'login',
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+        bio: bio.trim(),
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const switchMode = (mode) => {
@@ -125,8 +136,12 @@ export default function LoginPage({ onAuthenticated }) {
             />
           )}
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <Pressable onPress={handleSubmit} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{isSignup ? 'Create Account' : 'Login Now'}</Text>
+            <Text style={styles.primaryButtonText}>
+              {isSubmitting ? 'Please wait...' : isSignup ? 'Create Account' : 'Login Now'}
+            </Text>
           </Pressable>
 
           <View style={styles.termsRow}>
@@ -266,6 +281,11 @@ const styles = StyleSheet.create({
     height: 54,
     justifyContent: 'center',
     marginTop: 4,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
   },
   primaryButtonText: {
     color: colors.text,

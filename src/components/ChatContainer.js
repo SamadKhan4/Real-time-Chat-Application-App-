@@ -9,15 +9,20 @@ export default function ChatContainer({
   authUser,
   messages,
   selectedChat,
+  typingUserId,
+  groupTypingUsers,
   onBack,
   onOpenDetails,
   onSendMessage,
+  onStartTyping,
+  onStopTyping,
 }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isCompact = width < 380;
   const [input, setInput] = useState('');
   const listRef = useRef(null);
+  const typingTimeout = useRef(null);
 
   useEffect(() => {
     if (messages.length) {
@@ -28,9 +33,28 @@ export default function ChatContainer({
   const handleSend = () => {
     const text = input.trim();
     if (!text) return;
+    onStopTyping?.();
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
     onSendMessage(text);
     setInput('');
   };
+
+  const handleInputChange = (value) => {
+    setInput(value);
+    onStartTyping?.();
+
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      onStopTyping?.();
+    }, 1200);
+  };
+
+  useEffect(() => (
+    () => {
+      if (typingTimeout.current) clearTimeout(typingTimeout.current);
+      onStopTyping?.();
+    }
+  ), [onStopTyping]);
 
   if (!selectedChat) {
     return (
@@ -45,11 +69,19 @@ export default function ChatContainer({
   }
 
   const title = selectedChat.isGroup ? selectedChat.name : selectedChat.fullName;
-  const subtitle = selectedChat.isGroup
-    ? `${selectedChat.members?.length || 0} members`
-    : selectedChat.online
-      ? 'Online'
-      : 'offline';
+  const typingNames = Object.values(groupTypingUsers?.[selectedChat?._id] || {});
+  const isTyping = selectedChat.isGroup ? typingNames.length > 0 : typingUserId === selectedChat._id;
+  const subtitle = isTyping
+    ? selectedChat.isGroup
+      ? typingNames.length > 1
+        ? `${typingNames.join(', ')} are typing...`
+        : `${typingNames[0]} is typing...`
+      : 'typing...'
+    : selectedChat.isGroup
+      ? `${selectedChat.members?.length || 0} members`
+      : selectedChat.online
+        ? 'Online'
+        : 'offline';
 
   return (
     <View style={styles.container}>
@@ -63,7 +95,7 @@ export default function ChatContainer({
             <Text numberOfLines={1} style={styles.headerTitle}>
               {title}
             </Text>
-            <Text style={[styles.headerSubtitle, subtitle === 'Online' && styles.onlineText]}>{subtitle}</Text>
+            <Text style={[styles.headerSubtitle, (subtitle === 'Online' || isTyping) && styles.onlineText]}>{subtitle}</Text>
           </View>
         </Pressable>
         <Pressable onPress={onOpenDetails} style={styles.infoButton}>
@@ -76,7 +108,8 @@ export default function ChatContainer({
         data={messages}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => {
-          const isOwn = item.senderId === authUser?._id;
+          const senderId = typeof item.senderId === 'object' ? item.senderId?._id : item.senderId;
+          const isOwn = senderId === authUser?._id;
 
           return (
             <View style={[styles.messageRow, isOwn && styles.messageRowOwn]}>
@@ -106,7 +139,7 @@ export default function ChatContainer({
           </Pressable>
           <TextInput
             value={input}
-            onChangeText={setInput}
+            onChangeText={handleInputChange}
             placeholder="Send a message"
             placeholderTextColor={colors.textSoft}
             style={styles.messageInput}
