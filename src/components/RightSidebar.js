@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from './Avatar';
@@ -20,7 +20,8 @@ export default function RightSidebar({ selectedChat, messages, onClose, onLogout
 
   const title = selectedChat.isGroup ? selectedChat.name : selectedChat.fullName;
   const bio = selectedChat.isGroup ? selectedChat.bio || `${selectedChat.members?.length || 0} members` : selectedChat.bio;
-  const mediaCount = messages.filter((message) => message.image).length;
+  const mediaImages = messages.filter((message) => message.image).map((message) => message.image);
+  const mediaCount = mediaImages.length;
 
   const handleSaveGroup = () => {
     onUpdateGroup({ ...selectedChat, name: groupName, bio: groupBio });
@@ -97,10 +98,19 @@ export default function RightSidebar({ selectedChat, messages, onClose, onLogout
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Media</Text>
-          <View style={styles.mediaBox}>
-            <Text style={styles.mediaCount}>{mediaCount}</Text>
-            <Text style={styles.mediaText}>shared images</Text>
-          </View>
+          {mediaCount ? (
+            <View style={styles.mediaGrid}>
+              {mediaImages.slice(0, 9).map((image) => (
+                <Image key={image} source={{ uri: image }} style={styles.mediaImage} />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.mediaBox}>
+              <Text style={styles.mediaCount}>0</Text>
+              <Text style={styles.mediaText}>shared images</Text>
+            </View>
+          )}
+          {!!mediaCount && <Text style={styles.mediaText}>{mediaCount} shared images</Text>}
         </View>
       </ScrollView>
 
@@ -268,6 +278,17 @@ const styles = StyleSheet.create({
   mediaText: {
     color: colors.textSoft,
     marginTop: 4,
+  },
+  mediaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  mediaImage: {
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 12,
+    height: 78,
+    width: 78,
   },
   logoutButton: {
     alignItems: 'center',

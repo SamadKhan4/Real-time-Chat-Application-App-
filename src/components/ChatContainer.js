@@ -1,6 +1,7 @@
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import Avatar from './Avatar';
 import { colors } from '../constants/theme';
 import { formatMessageTime } from '../utils/formatMessageTime';
@@ -21,6 +22,7 @@ export default function ChatContainer({
   const { width } = useWindowDimensions();
   const isCompact = width < 380;
   const [input, setInput] = useState('');
+  const [isSendingImage, setIsSendingImage] = useState(false);
   const listRef = useRef(null);
   const typingTimeout = useRef(null);
 
@@ -35,8 +37,44 @@ export default function ChatContainer({
     if (!text) return;
     onStopTyping?.();
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    onSendMessage(text);
+    onSendMessage({ text });
     setInput('');
+  };
+
+  const handlePickImage = async () => {
+    if (isSendingImage) return;
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Photo Permission', 'Please allow photo access to send images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      base64: true,
+      mediaTypes: ['images'],
+      quality: 0.75,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Send Image', 'Could not read this image. Please try another one.');
+      return;
+    }
+
+    const mimeType = asset.mimeType || 'image/jpeg';
+    setIsSendingImage(true);
+    onStopTyping?.();
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+
+    try {
+      await onSendMessage({ image: `data:${mimeType};base64,${asset.base64}` });
+    } finally {
+      setIsSendingImage(false);
+    }
   };
 
   const handleInputChange = (value) => {
@@ -110,13 +148,23 @@ export default function ChatContainer({
         renderItem={({ item }) => {
           const senderId = typeof item.senderId === 'object' ? item.senderId?._id : item.senderId;
           const isOwn = senderId === authUser?._id;
+          const senderName = typeof item.senderId === 'object'
+            ? item.senderId?.fullName || item.senderId?.fullname || 'Group member'
+            : title;
 
           return (
             <View style={[styles.messageRow, isOwn && styles.messageRowOwn]}>
-              {!isOwn && <Avatar name={title} size={28} />}
-              <View style={[styles.bubble, isOwn && styles.bubbleOwn]}>
-                {selectedChat.isGroup && !isOwn && <Text style={styles.senderName}>{title}</Text>}
-                <Text style={[styles.messageText, isOwn && styles.messageTextOwn]}>{item.text}</Text>
+              {!isOwn && <Avatar name={senderName} size={28} />}
+              <View style={[styles.bubble, item.image && styles.imageBubble, isOwn && styles.bubbleOwn]}>
+                {selectedChat.isGroup && !isOwn && <Text style={styles.senderName}>{senderName}</Text>}
+                {item.image && (
+                  <Image
+                    source={{ uri: item.image }}
+                    style={[styles.messageImage, { height: Math.min(220, width * 0.62), width: Math.min(230, width * 0.62) }]}
+                    resizeMode="cover"
+                  />
+                )}
+                {!!item.text && <Text style={[styles.messageText, isOwn && styles.messageTextOwn]}>{item.text}</Text>}
                 <Text style={[styles.messageTime, isOwn && styles.messageTimeOwn]}>{formatMessageTime(item.createdAt)}</Text>
               </View>
             </View>
@@ -134,8 +182,8 @@ export default function ChatContainer({
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={10}>
         <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom + 10, 12) }]}>
-          <Pressable style={styles.galleryButton}>
-            <Text style={styles.galleryButtonText}>+</Text>
+          <Pressable onPress={handlePickImage} style={[styles.galleryButton, isSendingImage && styles.disabledButton]}>
+            <Text style={styles.galleryButtonText}>{isSendingImage ? '...' : '+'}</Text>
           </Pressable>
           <TextInput
             value={input}
@@ -274,6 +322,16 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 17,
     borderBottomRightRadius: 5,
   },
+  imageBubble: {
+    padding: 6,
+  },
+  messageImage: {
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 13,
+    height: 210,
+    maxWidth: 250,
+    width: 230,
+  },
   senderName: {
     color: colors.primaryLight,
     fontSize: 11,
@@ -318,6 +376,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 24,
     lineHeight: 26,
+  },
+  disabledButton: {
+    opacity: 0.65,
   },
   messageInput: {
     backgroundColor: colors.surface,

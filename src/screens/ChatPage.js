@@ -35,10 +35,10 @@ export default function ChatPage({ authUser, token, onLogout, onOpenProfile }) {
   const applyOnlineStatus = useCallback((items = []) => (
     items.map((item) => ({
       ...item,
-      online: onlineUsers.includes(item._id),
+      online: onlineUsers.includes(item._id?.toString()),
       members: item.members?.map((member) => ({
         ...member,
-        online: onlineUsers.includes(member._id),
+        online: onlineUsers.includes(member._id?.toString()),
       })),
     }))
   ), [onlineUsers]);
@@ -54,8 +54,9 @@ export default function ChatPage({ authUser, token, onLogout, onOpenProfile }) {
     if (!authUser?._id) return undefined;
 
     const socket = io(API_URL, {
-      query: { userId: authUser._id },
-      transports: ['websocket', 'polling'],
+      query: {
+        userId: authUser._id?.toString(),
+      },
     });
     socketRef.current = socket;
 
@@ -68,7 +69,7 @@ export default function ChatPage({ authUser, token, onLogout, onOpenProfile }) {
     });
 
     socket.on('getOnlineUsers', (userIds) => {
-      setOnlineUsers(userIds || []);
+      setOnlineUsers((userIds || []).map((id) => id.toString()));
     });
 
     socket.on('newMessage', (newMessage) => {
@@ -277,7 +278,7 @@ export default function ChatPage({ authUser, token, onLogout, onOpenProfile }) {
     }
   };
 
-  const handleSendMessage = async (text) => {
+  const handleSendMessage = async (messageData) => {
     if (!selectedChat?._id) return;
     handleStopTyping();
 
@@ -285,10 +286,11 @@ export default function ChatPage({ authUser, token, onLogout, onOpenProfile }) {
       const path = selectedChat.isGroup
         ? `/api/messages/send-group/${selectedChat._id}`
         : `/api/messages/send/${selectedChat._id}`;
+      const body = typeof messageData === 'string' ? { text: messageData } : messageData;
       const data = await apiRequest(path, {
         method: 'POST',
         token,
-        body: { text },
+        body,
       });
       setMessages((prevMessages) => [...prevMessages, data.newMessage]);
     } catch (error) {
